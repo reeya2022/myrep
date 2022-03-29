@@ -1,0 +1,39 @@
+remapkey (Windows Server 2003 Resource Kit Tools)
+rktools.exe
+
+chrome
+同期は無効
+
+lhaplus
+firefo
+プリンタ接続
+TresGrep
+qttabbar
+
+putty
+https://ice.hotmint.com/putty/index.html
+タスクバーへの登録不要なので日本語版入れる
+
+サクラエディタ
+\AppData\Roaming\sakura\sakura.ini
+設定＞タイプ別設定一覧＞インポート
+「テキスト」は既にあるため削除
+
+winmerge
+winscp
+
+トータスgit
+https://gitforwindows.org/
+　「Checkout as-is, commit as-is」
+　チェックアウト時もコミット時も改行コードを変換しない。それ以外は全部default設定
+https://tortoisegit.org/
+　日本語言語パック
+　SSHクライアントの選択時にPlinkではなくOpenSSHを選択
+　設定＞Gitで、Config source=>グローバルを選択して、名前とメールを設定。AutoCrLfをfalseにして、保存先=>グローバルにして適用、OK
+
+オーバーレイアイコン調整
+https://ameblo.jp/hero-design/entry-12333322613.html
+↓も追加で変更
+\HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\ShellIconOverlayIdentifiers
+
+vmware player
