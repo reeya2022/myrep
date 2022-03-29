@@ -1,0 +1,220 @@
+Vagrant+VirtualBoxのセットがスタンダードっぽいのでそれにしてみる
+
+https://qiita.com/ozawan/items/160728f7c6b10c73b97e
+参考ページ
+
+https://www.vagrantup.com/downloads
+https://www.virtualbox.org/wiki/Downloads
+ダウンロードしてインストール
+
+https://app.vagrantup.com/boxes/search
+centosで検索
+
+https://app.vagrantup.com/centos/boxes/7
+↑を入れる centos7.8
+
+フォルダ作成
+C:\Vagrant\centos7.8
+
+コマンドプロンプト
+cd C:\Vagrant\centos7.8
+
+vagrant init centos/7
+
+作成されたVagrantfileを開いて、↓の行のコメントを外す
+#config.vm.network "private_network", ip: "192.168.33.10"
+
+vagrant up
+
+※Vagrantfileがある場所でupすること
+
+vagrant box list
+
+puttyで192.168.33.10に対してssh接続
+
+※接続エラーが出る場合はrootでログインしようとしていないか確認
+
+vagrant/vagrantでログイン
+
+→それでもなぜか接続エラーになるのでvirtulboxから確認したらvagrant/vagrantでログインできた
+
+sudo で /etc/ssh/sshd_config を開いて PasswordAuthentication yes に変更
+
+※virtualboxだとデフォルトで:が入力できないので「Shift」+ 「+」でコロンを入力できる
+
+sudo service sshd restart
+
+→これでputtyからログインok
+
+いちいちsudo実行したくないのでrootでログインできるようにする(パスワードはvagrant)
+
+yum -y update
+
+yum -y install httpd
+
+systemctl list-unit-files -t service | grep http
+systemctl enable httpd.service
+
+//時刻合わせ
+timedatectl set-timezone Asia/Tokyo
+timedatectl set-local-rtc 0
+
+//ifconfig使えるようにする
+yum -y install net-tools
+
+//phpインストール
+yum -y install epel-release
+rpm -Uvh http://rpms.famillecollet.com/enterprise/remi-release-7.rpm
+yum -y install --enablerepo=remi,remi-php74 php php-devel php-mbstring php-intl php-xml php-xmlrpc php-gd php-pdo php-pecl-mcrypt php-mysqlnd php-pecl-mysql
+
+php -v
+yum list installed | grep php
+
+//php.ini修正
+vi /etc/php.ini
+
+date.timezone = "Asia/Tokyo"
+
+mbstring.language = Japanese
+mbstring.internal_encoding = UTF-8
+mbstring.http_input = UTF-8
+mbstring.http_output = pass
+mbstring.encoding_translation = On
+mbstring.detect_order = auto
+mbstring.substitute_charset = none
+
+//composerのインストール
+curl -sS https://getcomposer.org/installer | php
+mv composer.phar /usr/local/bin/composer
+composer -V
+
+
+//準備
+yum -y install zip unzip
+
+vi /etc/selinux/config
+SELINUX=disabled
+→変更後centos再起動
+
+※selinuxを無効にしないとcakephpのlogsに書き込めない
+
+
+//cakephp4のプロジェクト作成
+cd /var/www/html
+composer create-project --prefer-dist cakephp/app:4.* myapp
+
+→ [Seld\JsonLint\ParsingException]エラーが発生。
+cakephp4を入れる場合composer.jsonが必要？かもしれないので作る
+
+rm -fr myapp
+vi composer.json
+↓をコピー
+https://github.com/cakephp/app/blob/4.x/composer.json
+
+再度実行
+composer create-project --prefer-dist cakephp/app:4.* myapp
+
+→それ以降はcomposer.jsonを削除してもエラーが起きなくなった。
+というかcomposer.jsonはcomposer updateしないと反映されないっぽいからよく分からん。
+
+※create-projectの途中で度々固まる現象が発生
+※原因は共有フォルダ。↓の部分で必ず固まる
+- Installing cakephp/plugin-installer (1.3.1): Extracting archive
+
+	↓以下いろいろ試した顛末
+	
+	https://fatty-rabbit.hatenablog.com/entry/2020/08/17/000000
+	→をもとに日本国内のサーバーに変更してみた
+
+	//変更
+	composer config -g repos.packagist composer https://packagist.jp
+	→ ダメ。変わらず
+
+	//戻す
+	composer config -g --unset repos.packagist
+
+	//プラグインを試してみる
+	composer global require hirak/prestissimo
+	→ダメ。エラーになる
+
+	↑で作成したcomposer.jsonを/var/www/htmlに移動
+	composer update
+	→ダメ。変わらず
+	
+	//キャッシュ削除
+	composer clear-cache
+	→ずっと待ってたらタイムアウトしたｗ
+	
+	共有フォルダを有効にしてからおかしくなったのでいったん共有フォルダを無効化する
+	config.vm.synced_folder の行をコメントアウトして再起動
+	→ダメ。遅いまま
+	
+	もう一回composer clear-cache を実行してさらにプロジェクト名をmyapp3 で実行
+	そしたら↓のエラーが発生したものの、作成ができた
+	
+	A connection timeout was encountered. If you intend to run Composer without connecting to the internet, run the command again prefixed with COMPOSER_DISABLE_NETWORK=1 to make Composer run in offline mode.
+	
+	その後もう一回今度はmyapp4 で実行したら今度は↑のエラーも起きなくなった
+	
+	ならばもう一回myappで実行。そしたらいつもの↓で固まった
+	  - Installing cakephp/plugin-installer (1.3.1): Extracting archive
+	
+	もうこれは多分共有フォルダが原因っぽい
+	
+	nfsの共有を使ってみる
+	vagrant plugin install vagrant-winnfsd
+	
+	↓Vagrantfileを変更
+	  config.vm.synced_folder "./myapp5", "/var/www/html/myapp5", type: "nfs", nfs_export: true, nfs_version: 3
+	→ダメ。変わらず
+	
+	//vagrantの共有フォルダ機能ではなく、普通にマウントさせてみる
+	https://souiunogaii.hatenablog.com/entry/CentOS7-WindowsCIFS
+	参考サイト
+	mount -t cifs -o user=<user>,password=<password> //192.168.33.1/myapp6 /var/www/html/myapp6
+	→ダメ。変わらず
+	
+	共有フォルダにした時点でダメっぽい
+
+	Vagrantfileにowner,groupを追加してみる
+	  config.vm.synced_folder "./myapp", "/var/www/html/myapp", owner: "vagrant", group: "vagrant"
+	→ダメ。
+	
+	vagrant経由せずに、virtualboxで直接共有フォルダ設定して実行
+	→ダメ。vagrantが原因でもないっぽい
+	
+	もういくらやってもダメなのでvagrant+virtualboxでやるのやめる。
+	共有フォルダが使えなかったらどうしようもないので。
+
+
+
+
+
+http://192.168.33.10/myapp/webroot/index.php
+
+→ URL rewriting is not properly configured on your server. のエラーが発生
+
+httpd.conf
+<Directory "/var/www/html">
+	AllowOverride All
+
+→ noneからAllに変更すればok
+
+
+
+//vagrantの共有フォルダ設定
+https://qiita.com/centipede/items/5b3cb4965618993cefec
+参考サイト
+
+vagrant halt
+C:\Vagrant\centos7.8\myapp 作成
+↓Vagrantfileを修正
+config.vm.synced_folder "./myapp", "/var/www/html/myapp"
+
+※共有フォルダを利用するためにはvagrant-vbguestというプラグインが必要
+vagrant plugin list
+vagrant plugin install vagrant-vbguest
+vagrant up
+
+vagrant vbguest --status
+

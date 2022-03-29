@@ -1,0 +1,64 @@
+
+//mysql版
+CREATE TABLE messages(
+    id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
+    user_id INT NOT NULL DEFAULT 0,
+    category_id SMALLINT DEFAULT 0,
+    status TINYINT NOT NULL DEFAULT 0,
+    title VARCHAR(255) NOT NULL,
+    body TEXT DEFAULT NULL,
+    create_datetime DATETIME DEFAULT NOW()
+);
+
+
+//postgres版
+CREATE TABLE messages(
+    id SERIAL NOT NULL PRIMARY KEY,
+    user_id integer NOT NULL DEFAULT 0,
+    category_id SMALLINT DEFAULT 0,
+    status smallint NOT NULL DEFAULT 0,
+    title VARCHAR(255) NOT NULL,
+    body TEXT DEFAULT NULL,
+    create_datetime timestamp DEFAULT NOW()
+);
+
+CREATE TABLE users(
+    id SERIAL NOT NULL PRIMARY KEY,
+    username VARCHAR(64) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    status smallint NOT NULL DEFAULT 0,
+    role VARCHAR(20) DEFAULT NULL,
+    pr TEXT DEFAULT NULL,
+    create_datetime timestamp DEFAULT NOW()
+);
+
+CREATE TABLE categories(
+    id SMALLINT NOT NULL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL
+);
+
+INSERT INTO categories (id, name)
+VALUES (0, '指定なし'), (1, '食べ物'), (2, 'スポーツ'), (3, 'ファッション'), (4, '音楽');
+
+
+
+//カラム削除
+ALTER TABLE messages DROP COLUMN user_id;
+ALTER TABLE messages DROP COLUMN category_id;
+
+//カラム追加(postgresqlはカラムの位置指定が出来ない)
+ALTER TABLE messages ADD user_id integer NOT NULL DEFAULT 0;
+ALTER TABLE messages ADD category_id SMALLINT DEFAULT 0;
+
+
+
+
+//mysqlとのデータ型対応表
+https://qiita.com/suin/items/85b1e3eebb99777b171d
+https://thinkit.co.jp/free/article/0703/13/1/
+https://knooto.info/rdbms-sql-datatype-comparison/
+
+
+//mysqlとのコマンド対応表
+https://qiita.com/aosho235/items/c657e2fcd15fa0647471
+

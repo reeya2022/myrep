@@ -1,0 +1,363 @@
+
+vmwareにcakephp4環境を構築する
+
+https://www.centos.org/download/
+x86_64を選択
+適当なサーバーをクリック
+CentOS-7-x86_64-DVD-2009.iso(4.4GB) をダウンロード
+
+vmwareを起動して、仮想マシンの新規作成から↑のisoを指定してインストール
+
+ストレージ:20GB/メモリ:1GB
+
+↓をもとにphpとcomposerをインストール
+vagrant版_共有フォルダの問題で頓挫.txt
+
+なぜかiptablesで色々制限かかっていたので無効化
+systemctl stop firewalld.service
+systemctl disable firewalld
+
+http://192.168.154.129/myapp/webroot/index.php
+
+//ランレベル変更(5=>3)
+systemctl set-default multi-user.target
+
+
+共有フォルダの設定をしてもなぜかcentos側で表示されない・・
+vmwware-toolsを入れなおせば良いらしくてそれをやってもダメ
+
+https://netwiz.jp/vmware-workstation-shared-directory/
+→の手順を実行
+
+yum -y install git
+git clone https://github.com/rasa/vmware-tools-patches.git
+cd vmware-tools-patches && ./patched-open-vm-tools.sh
+再起動
+→ダメ
+
+もう一回vmwware-toolsを入れなおしたらできた。さっきと変更したのは↓の部分。
+全部エンターではだめだった。hgfsの部分をoverwriteしないといけなかった。
+もういや・・・・・・
+
+The file /usr/bin/vmware-hgfsclient that this program was about to install
+already exists.  Overwrite? [no] yes
+
+The file /usr/bin/vmhgfs-fuse that this program was about to install already
+exists.  Overwrite? [no] yes
+
+//共有フォルダに移動してcomposer実行
+cd /mnt/hgfs/cakephp4
+composer create-project --prefer-dist cakephp/app:4.* myapp
+
+→できた・・・・
+
+ln -s /mnt/hgfs/cakephp4/myapp/ /var/www/html/myapp
+
+http://192.168.154.129/myapp/webroot/index.php
+
+→OK・・・。長かった、あまりにも長すぎた・・・・
+
+
+//postgresqlインストール
+※cakephp4の場合9.4以上をインストールする必要がある
+
+yum install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+ls -l /etc/yum.repos.d/
+yum -y install postgresql13-server
+systemctl enable postgresql-13
+/usr/pgsql-13/bin/postgresql-13-setup initdb ※これやんなくてもstartした時に自動で作成されるっぽい
+systemctl start postgresql-13
+systemctl status postgresql-13
+
+su - postgres
+psql -l
+
+createdb mydb
+psql mydb
+
+\d:テーブル一覧
+\q:終了
+
+↓これならsuする必要ないけど、pg_hba.confのpeerをtrustに変更しておくこと
+psql -U postgres mydb
+
+//postgresユーザーにパスワードを設定する
+
+psql -U postgres template1
+ALTER ROLE postgres with PASSWORD '<pass>';
+→通常のやり方
+ALTER USER postgres encrypted password '<pass>';
+→暗号化するやり方。alter roleとalter userは同じ意味らしい。encryptedを指定しないとpostgresql.confのpassword_encryptionに従うぽい。
+pg_hba.confのtrustをmd5に変更
+
+pg_shadowもpg_userもpasswordの表記が違うだけでどちらもユーザー一覧になる
+
+
+//pgAdminインストール
+https://www.pgadmin.org/download/pgadmin-4-windows/
+最新のpgadmin4-6.7をインストール
+
+pgadminからcentosへ接続するための設定を行う
+https://db-study.com/archives/144
+https://db-study.com/archives/152
+
+
+
+//テーブル空間について
+https://thinkit.co.jp/free/tech/10/4/1.html
+分かりやすい記事
+
+//スキーマやオブジェクトについて
+https://www.dbonline.jp/postgresql/schema/index1.html
+https://tech.pscsrv.co.jp/2021/08/02/
+
+
+
+//cakephpからpostgresqlを使えるようにするまでの手順
+※php-pgsqlを入れていなかったので入れる
+yum -y install --enablerepo=remi,remi-php74 php-pgsql
+
+
+
+//eclipseインストール
+https://computer.sarujincanon.com/2022/02/26/pleiades_eclipse/
+pleiadesについて
+
+https://mergedoc.osdn.jp/
+
+pleiades版だとxamppも勝手に入ってしまうっポイ
+なので本体は英語サイトからダウンロードして、日本語化だけpleiadesプラグインを使用する
+
+https://www.eclipse.org/downloads/
+→最新版ダウンロード
+
+インストール後、cakephp4のプロジェクトをインポート
+
+eclipseを日本語化する
+https://www.javadrive.jp/eclipse3/install/index4.html
+
+PDTをインストールする・・と思ったら既にインストールされていた。。
+
+
+
+//xdebugを有効にする
+yum -y install --enablerepo=remi,remi-php74 php-pear
+→これでpearとpeclが実行可能になる
+
+↓をphp.iniの一番最後に追加
+zend_extension=/usr/lib64/php/modules/xdebug.so
+
+php -m
+→ Xdebugが表示されること
+
+php -v
+→ with Xdebug v3.1.3
+
+↓をphp.iniの一番最後に追加
+xdebug.mode=debug
+xdebug.start_with_request=yes
+xdebug.discover_client_host=1
+xdebug.client_host=localhost
+xdebug.client_port=9000
+;xdebug.log=/tmp/xdebug.log
+
+→phpinfo()でxdebugの情報が表示される
+
+https://oc-technote.com/eclipse/eclipse%2Bxdebug%E3%81%A7cakephp%E3%82%92%E3%83%AA%E3%83%A2%E3%83%BC%E3%83%88%E3%83%87%E3%83%90%E3%83%83%E3%82%B0%E3%81%99%E3%82%8B/
+https://qiita.com/toontoon/items/f7340a259b7135952ac3
+eclipseの設定参考サイト
+
+設定どおりにやってもブレークポイントで止まらない
+
+やっぱりphpをwindowsに入れないとダメポイので試しに入れてみる
+https://windows.php.net/download#php-7.4
+→thread safeのzip(php 7.4.28)
+
+解凍したフォルダをc:\直下に移動
+システム環境変数にphpのパスを通す
+
+
+//IDEとリモートのxdebugに関して
+https://qiita.com/Syy12345-Unity/items/9947806c85a877176c67
+→参考になる記事
+
+
+//xdebuが動かなくてやったこと
+https://xdebug.org/wizard
+→ここにphpinfoの結果を張り付けて表示された通りのコマンドを実行してxdebug.soを作り直したけどダメ
+
+
+//modeは,で繋げることができる
+xdebug.mode=debug,develop
+
+
+//xdebugで分かったこと
+xdebug.mode=debug
+xdebug.start_with_request=yes
+とするとサーバー上でtest.phpとかを実行してもxdebugが実行される
+
+なので動作確認する場合はサーバー上で適当にphp作って動かしてみるのが良い
+その際xdebug.log=/tmp/xdebug.log とすればログにエラーが出力される(指定しなくても標準出力)
+
+エラー内容
+[root@localhost ~]# cat /tmp/xdebug.log
+[1747] Log opened at 2022-03-27 23:29:51.000289
+[1747] [Step Debug] INFO: Connecting to configured address/port: localhost:9003.
+[1747] [Step Debug] WARN: Creating socket for 'localhost:9003', poll success, but error: Operation now in progress (29).
+[1747] [Step Debug] WARN: Creating socket for 'localhost:9003', poll success, but error: Operation now in progress (29).
+[1747] [Step Debug] ERR: Could not connect to debugging client. Tried: localhost:9003 (through xdebug.client_host/xdebug.client_port) :-(
+[1747] Log closed at 2022-03-27 23:29:51.000795
+
+
+9003が使用中のようなエラーが出ている
+↓を実行することで9003を使用しているプロセスがわかる
+
+lsof -i :9003
+
+↓これで開いているかどうか分かる
+nmap -p9003 localhost
+
+PORT     STATE  SERVICE
+9003/tcp closed unknown
+
+→closedはアクセス可能だけど受信待機しているアプリケーションがない、という意味。filteredの場合だとfwでアクセス不可になっている可能性がある。
+
+となると9003のポートは問題ない
+
+もうこうなるとxdebugのバージョンとphpのバージョンが合っていない、可能性が高いと思われる
+
+
+//xdebug2.9だとどうなるか試してみる
+https://github.com/xdebug/xdebug/tree/xdebug_2_9
+→ソースダウンロード(git cloneした方が良かった？)
+→Compileの手順に従ってxdebug.soを作成
+
+※make install すると既存のxdebug.so上書くので注意
+
+php -v の結果↓
+
+	Zend Engine v3.4.0, Copyright (c) Zend Technologies
+	    with Xdebug v2.9.9-dev, Copyright (c) 2002-2020, by Derick Rethans
+
+↓ダメ。同じエラーが起きた
+
+[root@localhost ~]# cat /tmp/xdebug2.log
+[14633] Log opened at 2022-03-28 01:03:53
+[14633] I: Connecting to configured address/port: localhost:9000.
+[14633] W: Creating socket for 'localhost:9000', poll success, but error: Operation now in progress (29).
+[14633] W: Creating socket for 'localhost:9000', poll success, but error: Operation now in progress (29).
+[14633] E: Could not connect to client. :-(
+[14633] Log closed at 2022-03-28 01:03:53
+
+試しにポートを使用中の80に変更してみた
+xdebug.remote_port=80
+
+↓するとなんとエラーが起きなくなった・・・
+
+[14685] Log opened at 2022-03-28 01:05:34
+[14685] I: Connecting to configured address/port: localhost:80.
+[14685] I: Connected to client. :-)
+[14685] -> <init xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" fileuri="file:///root/test.php" language="PHP" xdebug:language_version="7.4.28" protocol_version="1.0" appid="14685" idekey="root"><engine version="2.9.9-dev"><![CDATA[Xdebug]]></engine><author><![CDATA[Derick Rethans]]></author><url><![CDATA[https://xdebug.org]]></url><copyright><![CDATA[Copyright (c) 2002-2020 by Derick Rethans]]></copyright></init>
+[14685] -> <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" status="stopping" reason="ok"></response>
+
+なのでもう一度v3に戻してポートを80に変更する
+eclipseも80に変更して再度eclipseから実行
+→ ダメ。ただしログが↓に出力されていることが分かった
+
+/tmp/systemd-private-519e9e0ec0bd482caf8224904548ec4d-httpd.service-8GGhEP/tmp/xdebug.log
+
+※/tmp/xdebug.logではないので超注意!!!!
+
+↓eclipseで接続した時のxdebug.logの中身
+[15308] Log opened at 2022-03-28 01:39:10.940154
+[15308] [Step Debug] INFO: Connecting to configured address/port: 192.168.154.1:80.
+[15308] [Step Debug] ERR: Time-out connecting to debugging client, waited: 200 ms. Tried: 192.168.154.1:80 (through xdebug.client_host/xdebug.client_port) :-(
+[15308] Log closed at 2022-03-28 01:39:11.142114
+
+↓のページを参考にtelnetで繋げてみる
+https://zenn.dev/karamawanu/articles/262b19beaaeced
+
+ゲスト(centos) → ホスト(windows) につなげる
+
+1.eclipseで9003ポートでデバッグを開始
+2.centosで telnet 192.168.154.1 9003 を実行 → ダメ
+3.windowsのipconfigを見ると192.168.154.1 と 192.168.106.1 が存在していた
+4.centosで telnet 192.168.106.1 9003 を実行 → つながった!!! Ctrl + ] で解除
+
+指定していたipアドレスが間違っていた可能性がある。アクセスログに表示されていたipではなかった！！完全に騙された。。
+
+↓以下変更して再度eclipseからデバッグ
+;xdebug.client_host=192.168.154.1
+xdebug.client_host=192.168.106.1
+
+すると↓のアラートが表示された。しかもその間ブラウザがローディング中になった。明らかに今までと違う挙動になった。
+xdebug_アラート.png
+
+	remote debug session that doesn't refer to localhost is requested to be started.
+	ローカルホストを参照しないリモートデバッグセッションを開始するように要求されます。
+
+	To accept remote sessions that don't refer to localhost,you need to set 'Allow remote session (JIT)' option to 'any' in debugger general settings.
+	ローカルホストを参照しないリモートセッションを受け入れるには、デバッガーの一般設定で[リモートセッション（JIT）を許可する]オプションを[任意]に設定する必要があります。
+
+↓xdebug.logの中身
+[17533] [Step Debug] INFO: Connecting to configured address/port: 192.168.106.1:9003.
+[17533] [Step Debug] INFO: Connected to debugging client: 192.168.106.1:9003 (through xdebug.client_host/xdebug.client_port). :-)
+[17530] [Step Debug] -> <init xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" fileuri="file:///mnt/hgfs/xdebug_sample/test.php" language="PHP" xdebug:language_version="7.4.28" protocol_version="1.0" appid="17530"><engine version="3.1.3"><![CDATA[Xdebug]]></engine><author><![CDATA[Derick Rethans]]></author><url><![CDATA[https://xdebug.org]]></url><copyright><![CDATA[Copyright (c) 2002-2022 by Derick Rethans]]></copyright></init>
+[17530] [Step Debug] -> <response xmlns="urn:debugger_protocol_v1" xmlns:xdebug="https://xdebug.org/dbgp/xdebug" status="stopping" reason="ok"></response>
+
+アラートのリンクからxdebugのグローバル設定を開いて、JITをlocalhost=>任意に変更
+
+動きました・・・・・・・
+
+xdebugの設定始めてから10時間くらいかかったと思う
+
+もう本当に諦める一歩手前までいったけど、諦めなくて良かったわ・・・
+
+結局原因はxdebug.client_host が間違っていたこと。
+
+xdebug.discover_client_host=1 にしてもダメだった。
+
+ただしいclient_hostが設定されていないと動かないってことだった。
+
+
+
+========== ↓xdebugが動かず試行錯誤したログ ==========
+
+	phpのエラーを排除してみる
+	→test.phpでも同じだったのでエラーは関係ない
+
+	mode=developにしたらvar_dumpの表記が変わった
+	→なのでxdebugは機能している
+
+
+	やはりphp.iniの設定が正しくない可能性がある。もう少し設定をいじってみる
+	https://xdebug.org/docs/upgrade_guide/ja
+	→をもっとよく読む
+	→eclipseでダメならvim経由も試してみる
+
+
+	===
+	eclipse経由で、cakeじゃなくてただのtest.phpをvmに置いた場合だとデバッグ効くか
+	→cliの場合はローカルのphpを使うからローカルのphpにxdebugを適用すればデバッグ効くはず
+
+	webアプリケーションを起動するときは、eclipse側のphpの設定は不要
+	なので恐らくデバッグの時もxdebugはあくまでサーバー側にインストールされていればいいはず
+
+============================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,78 @@
+http://192.168.154.129/myapp/webroot/index.php
+
+
+公式のcakephp4インストール手順
+https://book.cakephp.org/4/ja/installation.html
+
+公式のコーディング規約
+https://book.cakephp.org/4/ja/contributing/cakephp-coding-conventions.html
+
+↓入門用によくまとまっている参考記事
+https://tt-computing.com/cake4-install
+
+
+.envとapp_local.phpについて
+https://tech-gineer.com/cakephp4/70/
+https://codesapuri.com/articles/7
+
+	もともと.envが使われていたっぽいのとコンテナベースだと.envを使うっぽいので.envを使うことにする
+	というか両方使った方が良さそう。なのでapp_local.phpと.env両方使う
+
+
+【重要】環境によって変わるファイルはgitの対象にしてはいけない
+
+	app.phpの場合、app.default.phpをgit管理にしておけば、app.default.phpに変更があってもapp.phpには影響ない(conflictが起きない)
+	(そもそもkarigoのdefine.phpは環境依存する変数とそうでない定数がごっちゃになっているからマズイ)
+
+
+
+ORマッパーの条件の指定について
+https://moewe-net.com/cakephp/orm-query
+
+conditionsでもwhereでもどっちでもいいっぽい
+
+find('all') よりも find()->all()の方がcakephp3以降に導入されたやり方なのでこっちの方がいい？
+
+//cake2
+$params = array(
+  'conditions' => array('year' => '2015'),
+  'fields' => array('id', 'title'),
+  'order' => array('id' => 'ASC'),
+  'limit' => 10,
+  'contain' => array('Tag'),
+);
+$data = $this->Post->find('all', $params);
+
+//cake3
+$data = $this->Posts->find()
+        ->select(['id', 'title'])
+        ->where(['year' => '2015'])
+        ->order(['id' => 'ASC'])
+        ->limit(10)
+        ->contain(['Tag'])
+        ->all();
+
+※update()もsave()を使わずにメソッドチェーンでかけるっぽい
+
+Posts->query()->update()
+			  ->set(['title'=>'test'])
+			  ->where(['id'=>'1'])
+			  ->execute();
+
+
+クエリーを全部ログに出す方法
+https://blog.s-giken.net/328.html
+logs/queries.log に出力する
+
+
+//データ更新について
+バリデーションする場合はpatchEntity()を実行するけどバリデーション不要の場合は↓みたいな感じになる
+
+$user = $this->User->newEntity(); ※newEmptyEntity()の方が良いかも？
+
+$user->id = 1;
+$user->status = 0;
+
+if ($this->User->save($user)) {
+}
+
