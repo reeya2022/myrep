@@ -1,0 +1,100 @@
+https://book.cakephp.org/4/ja/development/testing.html
+公式を見ながら試してみる
+
+最初のcomposerは実行しなくても最初からphpunit実行できるぽい
+
+まずtest用のDBの設定を行う(DBはtest_mydbとかにする)
+
+//vendor/bin/phpunitを実行すると↓のエラーが出る件
+
+Exception: Could not infer database type from driver
+	→app.phpのdriverを Cake\Database\Driver\Postgres::class のように指定しないといけないっぽい
+
+
+//マイグレーションについて
+https://inglow.jp/techblog/database-migration/
+参考サイト
+
+マイグレーションとは・・テーブル定義を管理する仕組み
+
+マイグレーションを使う理由
+	モダンなやり方は出来る限り直接SQLを実行しないってことぽい
+
+		データベースを構築する時はマイグレーションを使う
+		データベースにアクセスする時はORマッパーを使う
+
+	後はやっぱりデータベースの変更履歴をバージョン管理できるってことっぽい
+
+
+#  bakeコマンドでマイグレーションファイルを生成する
+bin/cake bake migration CreateSamples name:string
+
+# 実行結果
+Creating file /mnt/hgfs/cakephp4/myapp2/config/Migrations/20220331041813_CreateSamples.php
+Wrote `/mnt/hgfs/cakephp4/myapp2/config/Migrations/20220331041813_CreateSamples.php`
+
+# マイグレーションを実行する
+bin/cake migrations migrate
+ 
+# 実行結果 
+samplesテーブルが作成される
+idは自動的に作成されるっぽい
+
+# seedファイルの生成
+bin/cake bake seed Samples
+ 
+# 実行結果
+Creating file /mnt/hgfs/cakephp4/myapp2/config/Seeds/SamplesSeed.php
+Wrote `/mnt/hgfs/cakephp4/myapp2/config/Seeds/SamplesSeed.php`
+
+#SamplesSeed.php のdataにデータを記入
+
+# seedを実行し初期データを投入する
+bin/cake migrations seed
+ 
+# 実行結果
+samplesにデータが作成される
+
+
+
+//phpunit.xml.distについて
+phpunit.xml、phpunit.xml.distの順に設定ファイルを読み込むらしい
+
+
+
+//phpunitのマニュアル
+http://www.phpunit.cn/manual/7.0/ja/installation.html
+https://phpunit.readthedocs.io/ja/latest/#
+
+
+phpunit実行すると↓というエラーが発生
+Warning:       Your XML configuration validates against a deprecated schema.
+
+↓ひとまず実行してみる
+vendor/bin/phpunit --migrate-configuration
+
+
+#bakeで作成したModelのTestクラスをひとまず実行してみる
+vendor/bin/phpunit tests/TestCase/Model/Table/VofficeOfficesTableTest.php
+
+↓すると以下のようなエラーが発生
+Cake\Core\Exception\CakeException: Cannot describe schema for table `voffice_offices` for fixture `App\Test\Fixture\VofficeOfficesFixture`. The table does not exist.
+Cake\Database\Exception\DatabaseException: Cannot describe voffice_offices. It has 0 columns.
+
+スキーマがない、というエラーっぽい。
+
+https://book.cakephp.org/4.next/ja/appendices/fixture-upgrade.html
+これを見るとスキーマを作成する必要があるっぽい
+
+Fixtureファイルに↓と書くことでスキーマ情報をimportしているっぽい。でこれを書けば2つのエラーのうち1つ目は消える。でも古いやり方のはずなのでこれは使うべきでないはず。
+public $import = ['table' => 'voffice_offices'];
+
+
+https://tech.connehito.com/entry/2022/03/01/184740
+これを読む限り、やっぱりcakephpのマイグレーション使うか、DDLファイルを読み込むかを指定する必要があるっぽい
+
+bootstrap.phpと同じ階層にschema.sqlがあった！！！！！！
+ここにvoffice_officesのDDLを追加してみる。
+
+遂に動いた・・・・・・。長かった・・・・・・。っていうかこんなん分かる訳ねーーーー。
+

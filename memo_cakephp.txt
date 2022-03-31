@@ -76,3 +76,114 @@ $user->status = 0;
 if ($this->User->save($user)) {
 }
 
+
+
+//cake4のモデルについて
+・find()だとクエリ型を取得するので、データ(エンティティ)型にするにはさらにtoList()とかを実行しないといけない
+・get()だと直接データ(エンティティ)型を取得することができる
+
+
+
+//find()について
+find('all')もfind('list')も返すデータはクエリ型でどちらも同じ。流れるクエリも同じ。ただしtoList()とかを実行した後の結果が変わる
+
+find('all')->toList() ・・・ エンティティ型
+find('list')->toList() ・・・ 連想配列
+find('')->toList() ・・・・  find()もfind('all')と同じっぽい
+find('all')->all() ・・・・・ResultSetオブジェクトになる
+
+find('list')の場合、keyFieldとvalueFieldを指定可能
+find('list',['keyField'=>'id','valueField'=>'name'])
+
+
+
+
+//デバッグについて
+pr()よりもdebug()やdd()の方が良さそう。行番号も表示してくれるし。
+
+debug()
+dd() → exitしてくれる
+
+
+
+//formhelperについて
+https://book.cakephp.org/4/ja/views/helpers/form.html
+めちゃくちゃ便利だから絶対使うべき
+
+$this->Form->control
+$this->Form->text
+
+control使うか各input使うかどちらでも良い
+各input使えば余計なdivで囲まれることがないので使い分けること(ただしidとかも付与されなくなるので注意)
+
+※controlでないとエラーメッセージが表示されない(class="form-error"が追加されるだけ)
+※その場合、テンプレート側で$this->Form->error()を実行する必要がある。
+
+
+submitはcontrol使わないこと。submit or button(type) を使う
+
+
+
+//バリデーションについて
+https://qiita.com/azukiazusa/items/9e8bbe461bdbc7ee572c
+cakephpで使用可能なバリデーション一覧
+
+
+
+
+//エンティティについて
+まずキャッシュが無効になっていること
+
+●分かったこと
+バリデーションはテーブルクラス、データをごにょごにょしたい場合はエンティティ、という区別で良さそう。
+
+エンティティを変更したい場合はset()を使えばよい。
+
+エンティティのセッター(_set)はset()を呼んだ時や、patchEntityでも呼ばれる。
+ただし、データがセットされていない場合は呼ばれない。(workdayではまった)
+
+今回試したworkdayのように、postされた値を整形して保存したい、といった場合。(今回は文字列型ではなく配列→文字列だったから余計大変だった。)
+
+	まず普通にバリデーションする
+	その後、エンティティに整形するメソッドを定義してその中で整形する
+	後はsaveすればok
+
+
+
+//patchEntityでデータが消える件
+https://qiita.com/satthi/items/0bb3ae3d6c12f66e6487
+DBの型と渡した型が違うと消えたりnullになったりするっぽい
+
+日付も/だと消えたｗ -に変換してやる必要がありそう
+
+
+
+//ajaxについて
+https://tt-computing.com/cake4-csrf-disabled
+そのままだとcsrfの保護で403エラーになる
+なので特定のアクションのみCsrfProtectionMiddlewareのskipCheckCallbackで許可してやる必要がある
+
+アクション側ではレンダーをオフにするため↓が必要
+$this->autoRender = false; 
+
+
+
+
+//キャッシュについて
+開発の際、cakeのキャッシュは必ず無効にすること。ONのままだと開発に支障が出まくる
+
+https://tt-computing.com/cake4-cache-clear
+(消さない)何か変だなと思ったら即cache_clearすること(特にモデル回り)
+
+
+
+
+//トランザクションについて
+これまで通りbegin()～commit()するやり方と、transactional()を使う2つの方法があるっぽい。
+begin()～commit()だと記述が若干冗長になるっぽいので、transactional()を使った方が良いかも。
+
+
+
+
+
+
