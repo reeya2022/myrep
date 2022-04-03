@@ -45,10 +45,71 @@ dnf -y install httpd
 systemctl list-unit-files -t service | grep http
 systemctl enable httpd.service
 
+//共有フォルダ設定
+共有フォルダの設定をしても反映されず
+それどころかGuest Additions CDイメージまでマウントできなくなった
+/var/log/messagesを見たらエラーメッセージ(Unknown filesystem type 'iso9660)が出ていた
+
+https://blog.omak.work/articles/47
+→これの通りに/dev/cdromを/mntにマウントしたら上手くいった
+
+共有フォルダ設定で/mntをマウントポイントにしてしまったのがダメだったのかも。
+共有フォルダ設定をするときは、マウントポイント空欄にすること。
+
+結局、Guest Additionsがインストールできない
+でやったこと
+
+https://t-cr.jp/memo/12b179855cf16232
+yum -y update  kernel
+yum -y install kernel-devel kernel-headers dkms gcc gcc-c++
+reboot
+
+mount /dev/cdrom /mnt
+※この時点でクリップボードの共有が出来た！！
+
+これで共有できたのでもう何もしない方が良い
+ウィンドウのサイズ変更も出来るようになった
+
+共有フォルダも設定できた。マウントポイントを空欄にすると/media/にマウントされる。
+
+//phpインストール
+dnf module enable php:7.4 -y
+yum -y install php php-devel php-mbstring php-intl php-xml php-xmlrpc php-gd php-pdo php-mysqlnd php-pgsql php-pear
+
+php -v
+yum list installed | grep php
+
+//php.ini修正
+vi /etc/php.ini
+
+date.timezone = "Asia/Tokyo"
+
+mbstring.language = Japanese
+mbstring.internal_encoding = UTF-8
+mbstring.http_input = UTF-8
+mbstring.http_output = pass
+mbstring.encoding_translation = On
+mbstring.detect_order = auto
+mbstring.substitute_charset = none
+
+//composerのインストール
+curl -sS https://getcomposer.org/installer | php
+mv composer.phar /usr/local/bin/composer
+composer -V
+
 
 //cakephp4のプロジェクト作成
-cd /var/www/html
+mkdir /media/sf_rockylinux/myapp/
+ln -s /media/sf_rockylinux/myapp/ /var/www/html/myapp
+cd /media/sf_rockylinux/myapp/
 composer create-project --prefer-dist cakephp/app:4.* myapp
+
+やっぱりだめ。↓で止まってしまう。
+  - Installing cakephp/app (4.3.1): Extracting archive
+
+よく考えたらlinuxからがダメなら、windowsからcomposerを実行すればいい
+
+
 
 
 
