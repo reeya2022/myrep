@@ -1,0 +1,95 @@
+最初DVD版をインストールしたけど重すぎるのでminimalからGUIを追加インストールする方法を試してみる
+
+https://qiita.com/Ko_Miya/items/7d24d018ef10f2e342c7
+ソフトウェアの選択→最小限のインストール
+
+dnf -y upgrade
+
+cat /etc/redhat-release
+
+//selinux無効
+vi /etc/selinux/config
+SELINUX=disabled
+→変更後centos再起動
+
+//なぜかiptablesで色々制限かかっていたので無効化
+systemctl stop firewalld.service
+systemctl disable firewalld
+
+//guiをインストール
+dnf -y group install "Server with GUI"
+systemctl set-default graphical
+reboot
+
+※ログイン後に何故かフリーズしてしまう・・・
+→rootだとログインできたけどやっぱりフリーズ
+
+※※グラフィックコントローラーをVMSVGAにしたらフリーズしなくなった！！！！！
+
+//クリップボードの共有
+→ VirtualBox Guest Additionsのセットアップが必要
+
+	イメージ挿入すると挿入できない、というエラーが発生
+	https://www.koikikukan.com/archives/2020/04/13-235555.php
+	→これに従う
+	→これだけだと共有できず
+	
+	https://qiita.com/terappy/items/aebf7786b9d6d584f92b
+	https://teratail.com/questions/268595
+	→この辺のことやったけどダメ
+	→諦めてputtyでやる
+
+//httpインストール
+dnf -y install httpd
+
+systemctl list-unit-files -t service | grep http
+systemctl enable httpd.service
+
+
+//cakephp4のプロジェクト作成
+cd /var/www/html
+composer create-project --prefer-dist cakephp/app:4.* myapp
+
+
+
+
+
+==================
+↓以下DVD版
+
+http://dl.rockylinux.org/vault/rocky/8.4/BaseOS/x86_64/iso/
+DVDの8.4をダウンロード(minimalだとGUIにならないっぽい)
+
+https://vboxmania.net/%E3%83%87%E3%82%A3%E3%82%B9%E3%83%97%E3%83%AC%E3%82%A4%E8%A8%AD%E5%AE%9A/
+グラフィックコントローラーはVBoxSVGAが良いっぽい
+
+※:が入力できない
+→ 「Shift」+ 「+」
+
+※virtualboxからマウスが出られない場合
+→ 右側のCtrlキー
+
+※virtualboxのマウスカーソルが消える件
+→ ポインティングデバイスをPS/2 マウスからUSBタブレットに変更する
+→ それでもたまに消える時があるのでその場合はリセットする
+
+※virtualboxの画面が黒いままになる
+→ ビデオメモリが不足している可能性 →ダメ
+→ virtualboxを管理者権限で動かす →ダメ？
+→ グラフィックコントローラーをVBoxSVGAにして、それでも発生したら↓のフリーズするを参照
+
+※virtualboxがフリーズする(起動中・ログイン時・ログイン中)
+→ アクセラレーションをデフォルトからHyper-Vにする →ダメ。panicになる
+→ プロセッサーを1にする(増やすと不安定になる)
+→ メモリ8GBに変更(16GBでも変わらず)
+→ 後はもうフリーズしたら電源を落として再度起動すること(リセットよりも落として起動しなおした方が良さそう)
+
+
+※ゲスト側のIPとホスト側のIPがマッチしていない
+→ ネットワークをブリッジアダプターにする
+
+
+//NATとブリッジの違いがクソ分かりやすい記事
+https://qiita.com/pitao/items/0f9475e4c0e230911eb7
+
+
